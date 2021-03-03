@@ -2,34 +2,31 @@ import os
 import discord
 import random
 from dotenv import load_dotenv
+from discord.ext import commands
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.members = True
 
-@client.event
+
+# client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix='!',intents=intents)
+bot_respond_emoji = "🤖"
+
+@bot.event
 async def on_ready():
-    for guild in client.guilds:
+    for guild in bot.guilds:
         if guild.name == GUILD:
             break
     print(
-        f"{client.user} has connected to Discord!")
+        f"{bot.user.name} has connected to Discord!")
 
-
-@client.event
-async def on_member_join(member):
-    await member.create_dm()
-    await member.dm_channel.send(
-        f"Hi {member.name}, welcome to my Discord Server!"
-    )
-
-@client.event
-async def on_message(message):
-    if message.author==client.user:
-        return
+@bot.command(name='99', help='Responds with the random quote from Brooklyn 99')
+async def ninety_nine(ctx):
     brooklyn_99_quotes = [
     "I\'m the human form of 💯 emoji ",
     "Bingpot!",
@@ -39,13 +36,76 @@ async def on_message(message):
     ),
     ]
 
-    if message.content=="99!":
-        response = random.choice(brooklyn_99_quotes)
-        await message.channel.send(response)
-    elif 'happy birthday' in message.content.lower():
-        await message.channel.send('Happy Birthday!🎉🎈')
-    elif message.content=='raise-exception':
-        raise discord.DiscordException
-        
+    response = random.choice(brooklyn_99_quotes)
+    await ctx.message.add_reaction(bot_respond_emoji)
+    await ctx.send(response)
 
-client.run(TOKEN)
+@bot.command(name='upload', help='Upload the Image')
+async def upload_image(ctx):
+    guild = ctx.guild
+    author = ctx.author
+    daily_updates_channel = discord.utils.get(guild.channels,name="daily-updates")
+    await ctx.message.add_reaction(bot_respond_emoji)
+    await daily_updates_channel.send(file=discord.File("./images/fig1.png"))
+    await author.send(file=discord.File("./images/fig1.png"))
+
+@bot.command(name='roll-dice', help='Stimulates rolling dice')
+async def roll(ctx, number_of_dice: int, number_of_sides: int):
+    dice=[
+    str(random.choice(range(1,number_of_sides+1)))
+    for _ in range(number_of_dice)
+    ]
+    await ctx.message.add_reaction(bot_respond_emoji)
+    await ctx.send(', '.join(dice))
+
+@bot.command(name='create-channel', help = "Create new channel (Only Admins)")
+@commands.has_role('Admin')
+async def create_channel(ctx, channel_name):
+    await ctx.message.add_reaction(bot_respond_emoji)
+    guild = ctx.guild
+    existing_channel = discord.utils.get(guild.channels, name=channel_name)
+    if not existing_channel:
+        print(f"Creating a new channel: {channel_name}")
+        await guild.create_text_channel(channel_name)
+        await ctx.send(f'Channel created : {channel_name}')
+
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.CheckFailure):
+        await ctx.message.add_reaction(bot_respond_emoji)
+        await ctx.send("You do not have Correct Role(permissions) for this command")
+
+
+@bot.event
+async def on_member_join(member):
+    await member.create_dm()
+    await member.dm_channel.send(
+        f"Hi {member.name}, welcome to my Discord Server!"
+    )
+    guild = discord.utils.get(bot.guilds,name=GUILD)
+    general_channel = discord.utils.get(guild.channels,name="general")
+    await ctx.message.add_reaction(bot_respond_emoji)
+    await general_channel.send(f"Hi {member.name}, Welcome to the Server!")
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    if 'happy birthday' in message.content.lower():
+        await message.channel.send('Happy Birthday! 🎈🎉')
+        await ctx.message.add_reaction(bot_respond_emoji)
+    elif message.content == 'raise-exception':
+        raise discord.DiscordException
+    await bot.process_commands(message)
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    with open('err.log', 'a') as f:
+        if event == 'on_message':
+            f.write(f'Unhandled message: {args[0]}\n')
+        else:
+            raise
+
+
+bot.run(TOKEN)
