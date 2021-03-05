@@ -3,6 +3,8 @@ import discord
 import random
 from dotenv import load_dotenv
 from discord.ext import commands
+import app
+
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -69,6 +71,16 @@ async def create_channel(ctx, channel_name):
         await guild.create_text_channel(channel_name)
         await ctx.send(f'Channel created : {channel_name}')
 
+@bot.command(name="status", help="Current Status of the Stock")
+async def stock_status(ctx):
+    await ctx.message.add_reaction(bot_respond_emoji)
+    data = f"""TCS EOD Data\n--Date: {app.stock_data["date"]}
+--Open: {app.stock_data["open"]}\n--High: {app.stock_data["high"]}
+--Low: {app.stock_data["low"]}\n--Close: {app.stock_data["close"]}
+--Adj Close: {app.stock_data["adjclose"]}\n--Volume: {app.stock_data["volume"]}
+"""
+    await ctx.send(data)
+
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
@@ -84,7 +96,6 @@ async def on_member_join(member):
     )
     guild = discord.utils.get(bot.guilds,name=GUILD)
     general_channel = discord.utils.get(guild.channels,name="general")
-    await ctx.message.add_reaction(bot_respond_emoji)
     await general_channel.send(f"Hi {member.name}, Welcome to the Server!")
 
 @bot.event
@@ -93,8 +104,8 @@ async def on_message(message):
         return
 
     if 'happy birthday' in message.content.lower():
+        await message.add_reaction(bot_respond_emoji)
         await message.channel.send('Happy Birthday! 🎈🎉')
-        await ctx.message.add_reaction(bot_respond_emoji)
     elif message.content == 'raise-exception':
         raise discord.DiscordException
     await bot.process_commands(message)
@@ -106,6 +117,9 @@ async def on_error(event, *args, **kwargs):
             f.write(f'Unhandled message: {args[0]}\n')
         else:
             raise
+
+
+
 
 
 bot.run(TOKEN)
